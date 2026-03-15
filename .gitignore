@@ -1,0 +1,39 @@
+# Compiled binaries
+dist/
+
+# Build environment
+.build_venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Caches
+.cache/
+
+# Claude AI
+.claude/
+.claude.json
+
+# Shell dotfiles
+.bash_history
+.bash_logout
+.bashrc
+.profile
+
+# SSH keys
+.ssh/
+
+# Editor / IDE
+.vscode-server/
+.config/
+
+# Runtime / OS
+.dotnet/
+.wget-hsts
+.sudo_as_admin_successful
+
+# Runtime config (contains secrets — keep out of git)
+config.env
+*.env

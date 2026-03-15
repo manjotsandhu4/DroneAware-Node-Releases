@@ -1,0 +1,14 @@
+[Unit]
+Description=DroneAware BT Adapter Selector
+# Must run after bluetooth so hci devices are initialized in sysfs
+After=bluetooth.service
+# Must complete before feeders start
+Before=droneaware-ble.service droneaware-wifi.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/droneaware-bt-select
+
+[Install]
+WantedBy=multi-user.target

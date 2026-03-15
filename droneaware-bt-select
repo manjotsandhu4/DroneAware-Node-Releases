@@ -1,0 +1,118 @@
+#!/bin/bash
+# droneaware-bt-select
+# Runs at every boot. Detects whether a USB BT dongle is present.
+# - USB dongle present  → disable onboard BT (dtoverlay=disable-bt in config.txt)
+# - No USB dongle       → enable onboard BT (remove the overlay)
+# If config.txt needs to change, rewrites it and reboots.
+# On a correct boot, writes the active adapter MAC to config.env.
+
+CONFIG_TXT="/boot/firmware/config.txt"
+DA_CONFIG="/opt/droneaware/config.env"
+OVERLAY="dtoverlay=disable-bt"
+
+log()  { echo "$*"; }
+fatal(){ log "FATAL: $1"; exit 1; }
+
+# ---------------------------------------------------------------------------
+# 1. Detect USB BT adapter
+#    A USB-connected hci device has its subsystem symlink pointing into /usb
+# ---------------------------------------------------------------------------
+USB_HCI=""
+USB_MAC=""
+ONBOARD_HCI=""
+ONBOARD_MAC=""
+
+for hci_path in /sys/class/bluetooth/hci*/; do
+    [[ -d "$hci_path" ]] || continue
+    hci=$(basename "$hci_path")
+    subsystem=$(readlink -f "$hci_path/device/subsystem" 2>/dev/null)
+    mac=$(cat "$hci_path/address" 2>/dev/null)
+
+    if [[ "$subsystem" == */usb* ]]; then
+        USB_HCI="$hci"
+        USB_MAC="$mac"
+    else
+        ONBOARD_HCI="$hci"
+        ONBOARD_MAC="$mac"
+    fi
+done
+
+log "Scan results: USB_HCI=${USB_HCI:-none} ONBOARD_HCI=${ONBOARD_HCI:-none}"
+
+# ---------------------------------------------------------------------------
+# 2. Check current config.txt state
+# ---------------------------------------------------------------------------
+overlay_set=false
+grep -qF "$OVERLAY" "$CONFIG_TXT" 2>/dev/null && overlay_set=true
+
+log "config.txt disable-bt overlay: $overlay_set"
+
+# ---------------------------------------------------------------------------
+# 3. Decide if a change is needed
+# ---------------------------------------------------------------------------
+reboot_needed=false
+
+if [[ -n "$USB_HCI" ]] && ! $overlay_set; then
+    # USB dongle present but onboard BT not yet disabled → add overlay
+    log "USB BT dongle detected ($USB_MAC) but onboard BT is still enabled."
+    log "Adding '$OVERLAY' to $CONFIG_TXT and rebooting..."
+    if grep -q '^\[all\]' "$CONFIG_TXT"; then
+        echo "$OVERLAY" >> "$CONFIG_TXT"
+    else
+        printf '\n[all]\n%s\n' "$OVERLAY" >> "$CONFIG_TXT"
+    fi
+    reboot_needed=true
+
+elif [[ -z "$USB_HCI" ]] && $overlay_set; then
+    # No USB dongle but onboard BT is disabled → remove overlay
+    log "No USB BT dongle found. Removing '$OVERLAY' from $CONFIG_TXT and rebooting..."
+    sed -i "/^${OVERLAY}$/d" "$CONFIG_TXT"
+    reboot_needed=true
+fi
+
+# ---------------------------------------------------------------------------
+# 4. If config changed, reboot (the fix takes effect on next boot)
+# ---------------------------------------------------------------------------
+if $reboot_needed; then
+    log "BT adapter config changed. Rebooting in 3 seconds..."
+    sync
+    sleep 3
+    systemctl reboot
+    exit 0
+fi
+
+# ---------------------------------------------------------------------------
+# 5. Config is correct — update config.env with the active adapter
+# ---------------------------------------------------------------------------
+# Determine which adapter is active
+if [[ -n "$USB_HCI" ]]; then
+    ACTIVE_HCI="$USB_HCI"
+    ACTIVE_MAC="$USB_MAC"
+    log "Using USB BT adapter: $ACTIVE_HCI ($ACTIVE_MAC)"
+elif [[ -n "$ONBOARD_HCI" ]]; then
+    ACTIVE_HCI="$ONBOARD_HCI"
+    ACTIVE_MAC="$ONBOARD_MAC"
+    log "Using onboard BT adapter: $ACTIVE_HCI ($ACTIVE_MAC)"
+else
+    log "WARNING: No BT adapter found at all. Feeder will fail to start."
+    exit 1
+fi
+
+# MAC may be empty if BlueZ hasn't fully initialized; try hciconfig as fallback
+if [[ -z "$ACTIVE_MAC" || "$ACTIVE_MAC" == "00:00:00:00:00:00" ]]; then
+    ACTIVE_MAC=$(hciconfig "$ACTIVE_HCI" 2>/dev/null | awk '/BD Address/{print $3}')
+fi
+
+if [[ -z "$ACTIVE_MAC" ]]; then
+    log "WARNING: Could not determine MAC for $ACTIVE_HCI. Leaving config.env unchanged."
+    exit 0
+fi
+
+# Update BLE_ADAPTER and BLE_ADAPTER_MAC in config.env
+if [[ -f "$DA_CONFIG" ]]; then
+    sed -i "s|^BLE_ADAPTER=.*|BLE_ADAPTER=${ACTIVE_HCI}|" "$DA_CONFIG"
+    sed -i "s|^BLE_ADAPTER_MAC=.*|BLE_ADAPTER_MAC=${ACTIVE_MAC}|" "$DA_CONFIG"
+    log "config.env updated: BLE_ADAPTER=$ACTIVE_HCI  BLE_ADAPTER_MAC=$ACTIVE_MAC"
+fi
+
+exit 0
