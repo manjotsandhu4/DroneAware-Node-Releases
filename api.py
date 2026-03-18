@@ -7,6 +7,7 @@ from psycopg2.extras import RealDictCursor
 from datetime import datetime, timedelta
 import struct
 import json
+import os
 
 app = FastAPI()
 
@@ -27,8 +28,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# DATABASE CONFIG
-DB_CONN = "dbname=flighttracker user=fduflyer password=raspberry host=localhost"
+# DATABASE CONFIG — set DATABASE_URL in the server environment, never in source
+DB_CONN = os.environ["DATABASE_URL"]
 
 
 # ---------------------------------------------------------------------------
