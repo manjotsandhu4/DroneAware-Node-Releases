@@ -45,8 +45,7 @@ python3 -m venv "$BUILD_VENV"
     pyinstaller \
     bleak \
     requests \
-    charset-normalizer \
-    scapy
+    charset-normalizer
 
 echo "      Done."
 
@@ -79,8 +78,6 @@ echo "      Building wifi_feeder..."
     --workpath "$SCRIPT_DIR/.build_work/wifi" \
     --specpath "$SCRIPT_DIR/.build_specs" \
     --name wifi_feeder \
-    --collect-all scapy \
-    --collect-submodules scapy \
     "$SCRIPT_DIR/wifi_feeder.py" \
     > /dev/null 2>&1
 

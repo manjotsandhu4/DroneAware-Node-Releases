@@ -9,11 +9,13 @@ Supports:
   - Wi-Fi Beacon transport (vendor IE, OUI FA:0B:BC, type 0x0D)  [F3411-19/22a]
   - Wi-Fi NAN transport detection (action frames, OUI 50:6F:9A)  [F3411-22a]
 
+Uses raw AF_PACKET sockets (stdlib only — no scapy dependency).
+
 Usage:
     sudo python3 wifi_feeder.py --iface wlan1 --node-id NJ001 --server http://server/api
 
 Requirements:
-    pip3 install scapy requests
+    pip3 install requests
     sudo apt install iw wireless-tools
 """
 
@@ -26,7 +28,6 @@ import argparse
 import socket
 import os
 import requests
-from scapy.all import sniff, Dot11, Dot11Beacon, Dot11Elt, RadioTap, Dot11Action
 
 # -- Logging -------------------------------------------------------------------
 logging.basicConfig(
@@ -42,7 +43,7 @@ log = logging.getLogger("droneaware.wifi")
 # -- Constants -----------------------------------------------------------------
 
 # Vendor-specific IE OUI for ASTM F3411 Wi-Fi Beacon transport
-ASTM_OUI     = bytes([0xFA, 0x0B, 0xBC])
+ASTM_OUI      = bytes([0xFA, 0x0B, 0xBC])
 ASTM_OUI_TYPE = 0x0D  # Remote ID app code
 
 # Wi-Fi Alliance NAN OUI (action frames)
@@ -190,54 +191,115 @@ def decode_rid_message(raw_bytes: bytes) -> dict | None:
     return result
 
 
-# -- WiFi Frame Parsers --------------------------------------------------------
+# -- Raw 802.11 Frame Parsers --------------------------------------------------
+# Replaces scapy — uses stdlib socket + struct only.
 
-def get_rssi(pkt) -> int | None:
-    """Extract RSSI (dBm) from RadioTap header."""
-    try:
-        return pkt[RadioTap].dBm_AntSignal
-    except Exception:
-        return None
-
-
-def extract_beacon_rid(pkt) -> bytes | None:
+def _parse_radiotap(data: bytes) -> tuple[int, int | None]:
     """
-    Walk 802.11 beacon IEs looking for vendor-specific Remote ID payload.
+    Parse RadioTap header (IEEE 802.11-2020 Annex I).
+    Returns (header_length, rssi_dbm_or_None).
 
-    Beacon vendor IE structure (after scapy strips tag+length):
-      Bytes 0-2: OUI  (FA:0B:BC)
-      Byte  3:   OUI Type (0x0D)
-      Bytes 4+:  25-byte RID message
+    Fields are walked in present-bitmap order with natural alignment relative
+    to the start of the header. Only fields needed to reach dBm Signal (bit 5)
+    are decoded; the rest are skipped by size.
     """
-    if not pkt.haslayer(Dot11Beacon):
+    if len(data) < 8:
+        return len(data), None
+
+    rt_len  = struct.unpack_from('<H', data, 2)[0]
+    present = struct.unpack_from('<I', data, 4)[0]
+
+    rssi   = None
+    offset = 8  # first field starts after the fixed 8-byte header
+
+    # Bit 0: TSFT — uint64, align 8
+    if present & (1 << 0):
+        offset = (offset + 7) & ~7
+        offset += 8
+    # Bit 1: Flags — uint8
+    if present & (1 << 1):
+        offset += 1
+    # Bit 2: Rate — uint8
+    if present & (1 << 2):
+        offset += 1
+    # Bit 3: Channel — uint16 freq + uint16 flags, align 2
+    if present & (1 << 3):
+        offset = (offset + 1) & ~1
+        offset += 4
+    # Bit 4: FHSS — uint8 hop_set + uint8 hop_pattern
+    if present & (1 << 4):
+        offset += 2
+    # Bit 5: dBm Antenna Signal — int8
+    if present & (1 << 5):
+        if offset < len(data):
+            rssi = struct.unpack_from('b', data, offset)[0]
+        offset += 1
+
+    return rt_len, rssi
+
+
+def _mac_str(b: bytes) -> str:
+    return ':'.join(f'{x:02x}' for x in b)
+
+
+def _parse_dot11_mgmt(data: bytes) -> tuple[int, str, int] | None:
+    """
+    Parse an 802.11 management frame MAC header.
+
+    Returns (subtype, addr2_mac_str, body_offset) or None if not a mgmt frame.
+    addr2 is the transmitter (Source Address).
+    body_offset is the byte offset of the frame body within `data`.
+    Management frames have a fixed 24-byte MAC header.
+    """
+    if len(data) < 24:
         return None
+    fc0 = data[0]
+    frame_type    = (fc0 >> 2) & 0x3
+    frame_subtype = (fc0 >> 4) & 0xF
+    if frame_type != 0:          # 0 = management
+        return None
+    addr2 = _mac_str(data[10:16])
+    return frame_subtype, addr2, 24
 
-    elt = pkt.getlayer(Dot11Elt)
-    while elt is not None:
-        if elt.ID == 221:  # Vendor Specific
-            data = bytes(elt.info)
-            if len(data) >= 29 and data[:3] == ASTM_OUI and data[3] == ASTM_OUI_TYPE:
-                return data[4:29]  # exactly 25 bytes
-        # Traverse the IE linked list
-        elt = elt.payload.getlayer(Dot11Elt) if elt.payload else None
 
+def _extract_beacon_rid(body: bytes) -> bytes | None:
+    """
+    Walk 802.11 beacon Information Elements looking for the vendor-specific
+    ASTM F3411 Remote ID payload (OUI FA:0B:BC, type 0x0D).
+
+    Beacon frame body layout (after 24-byte MAC header):
+      Fixed parameters: 8 (timestamp) + 2 (beacon interval) + 2 (capability) = 12 bytes
+      Then: IE chain — tag(1) + length(1) + value(length)
+
+    Returns the 25-byte ODID message or None.
+    """
+    offset = 12  # skip fixed parameters
+    while offset + 2 <= len(body):
+        tag_id  = body[offset]
+        tag_len = body[offset + 1]
+        end     = offset + 2 + tag_len
+        if end > len(body):
+            break
+        if tag_id == 221:  # Vendor Specific IE
+            info = body[offset + 2: end]
+            if len(info) >= 29 and info[:3] == ASTM_OUI and info[3] == ASTM_OUI_TYPE:
+                return info[4:29]  # exactly 25 bytes
+        offset = end
     return None
 
 
-def is_nan_action(pkt) -> bool:
+def _is_nan_action(body: bytes) -> bool:
     """
-    Detect Wi-Fi NAN action frames (OUI 50:6F:9A, type 0x13).
-    Full NAN RID parsing is a future enhancement — we log and capture raw for now.
+    Detect Wi-Fi NAN action frames (category 4, OUI 50:6F:9A, type 0x13).
+    body: frame body starting after the 24-byte MAC header.
+    Full NAN RID parsing is a future enhancement — raw capture only for now.
     """
-    if not (pkt.haslayer(Dot11) and pkt[Dot11].type == 0 and pkt[Dot11].subtype == 13):
-        return False
-    try:
-        body = bytes(pkt[Dot11].payload)
-        # Category 4 = Public Action; OUI check at offset 2
-        return (len(body) >= 6 and body[0] == 4 and body[2:5] == NAN_OUI
-                and body[5] == NAN_OUI_TYPE)
-    except Exception:
-        return False
+    return (
+        len(body) >= 6 and
+        body[0] == 4 and           # Category: Public Action
+        body[2:5] == NAN_OUI and
+        body[5] == NAN_OUI_TYPE
+    )
 
 
 # -- Monitor Mode --------------------------------------------------------------
@@ -358,51 +420,61 @@ class WiFiFeeder:
         self.count       = 0
         self.nan_count   = 0
 
-    def _on_packet(self, pkt):
-        # ---- Wi-Fi Beacon Remote ID ----
-        rid_payload = extract_beacon_rid(pkt)
-        if rid_payload is not None:
-            self.count += 1
-            decoded = decode_rid_message(rid_payload)
-            mac     = pkt[Dot11].addr2 or ""
-            rssi    = get_rssi(pkt)
-
-            event = {
-                "node_id":   self.node_id,
-                "timestamp": time.time(),
-                "radio":     "wifi_beacon",
-                "mac":       mac,
-                "rssi":      rssi,
-                "payload":   rid_payload.hex().upper(),
-                "decoded":   decoded,
-            }
-
-            if self.verbose or (decoded and decoded.get("message_type") == "Basic ID"):
-                uas_id = decoded.get("uas_id", "") if decoded else ""
-                log.info(
-                    f"[WiFi-Beacon] MAC={mac}  RSSI={rssi}dBm  "
-                    f"Type={decoded.get('message_type','?') if decoded else '?'}  "
-                    f"UAS-ID={uas_id}"
-                )
-
-            self.forwarder.add(event)
+    def _on_packet(self, data: bytes):
+        # Parse RadioTap header to get RSSI and skip to 802.11 MAC header
+        rt_len, rssi = _parse_radiotap(data)
+        if rt_len >= len(data):
             return
 
-        # ---- Wi-Fi NAN Remote ID (detected, raw capture only) ----
-        if is_nan_action(pkt):
+        mac_data = data[rt_len:]
+        header = _parse_dot11_mgmt(mac_data)
+        if header is None:
+            return
+
+        subtype, addr2, body_offset = header
+        body = mac_data[body_offset:]
+
+        # ---- Wi-Fi Beacon Remote ID (subtype 8) ----
+        if subtype == 8:
+            rid_payload = _extract_beacon_rid(body)
+            if rid_payload is not None:
+                self.count += 1
+                decoded = decode_rid_message(rid_payload)
+
+                event = {
+                    "node_id":   self.node_id,
+                    "timestamp": time.time(),
+                    "radio":     "wifi_beacon",
+                    "mac":       addr2,
+                    "rssi":      rssi,
+                    "payload":   rid_payload.hex().upper(),
+                    "decoded":   decoded,
+                }
+
+                if self.verbose or (decoded and decoded.get("message_type") == "Basic ID"):
+                    uas_id = decoded.get("uas_id", "") if decoded else ""
+                    log.info(
+                        f"[WiFi-Beacon] MAC={addr2}  RSSI={rssi}dBm  "
+                        f"Type={decoded.get('message_type','?') if decoded else '?'}  "
+                        f"UAS-ID={uas_id}"
+                    )
+
+                self.forwarder.add(event)
+            return
+
+        # ---- Wi-Fi NAN Remote ID (subtype 13 — action frame) ----
+        if subtype == 13 and _is_nan_action(body):
             self.nan_count += 1
-            mac  = pkt[Dot11].addr2 or ""
-            rssi = get_rssi(pkt)
-            raw  = bytes(pkt[Dot11].payload).hex().upper()
+            raw = body.hex().upper()
 
             if self.verbose:
-                log.info(f"[WiFi-NAN] MAC={mac}  RSSI={rssi}dBm  raw={raw[:40]}...")
+                log.info(f"[WiFi-NAN] MAC={addr2}  RSSI={rssi}dBm  raw={raw[:40]}...")
 
             event = {
                 "node_id":   self.node_id,
                 "timestamp": time.time(),
                 "radio":     "wifi_nan",
-                "mac":       mac,
+                "mac":       addr2,
                 "rssi":      rssi,
                 "payload":   raw,
                 "decoded":   None,  # NAN full parsing is a future enhancement
@@ -417,24 +489,25 @@ class WiFiFeeder:
         self.hopper.start()
 
         log.info("Scanning for Remote ID beacon frames (ASTM F3411)...")
-        try:
-            ticker = 0
-            # sniff() blocks; we interleave tick() via a background flush thread
-            flush_thread = threading.Thread(
-                target=self._flush_loop, daemon=True
-            )
-            flush_thread.start()
 
-            sniff(
-                iface=self.iface,
-                prn=self._on_packet,
-                store=False,
-                # No BPF filter — the rtl8188eu driver doesn't support "type mgt".
-                # _on_packet() filters for Dot11Beacon and NAN action frames in Python.
-            )
+        sock = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.htons(3))
+        sock.bind((self.iface, 0))
+        sock.settimeout(1.0)
+
+        flush_thread = threading.Thread(target=self._flush_loop, daemon=True)
+        flush_thread.start()
+
+        try:
+            while True:
+                try:
+                    data = sock.recv(65535)
+                    self._on_packet(data)
+                except socket.timeout:
+                    continue
         except KeyboardInterrupt:
             log.info("Feeder stopped by user.")
         finally:
+            sock.close()
             self.hopper.stop()
             restore_managed_mode(self.iface)
             log.info(
