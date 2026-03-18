@@ -221,4 +221,4 @@ DroneAware captures and forwards **only data broadcast publicly by the drones th
 
 ---
 
-*DroneAware Node Software — open source, MIT License*
+*Copyright (c) 2026 DroneAware, LLC. Use of this software is subject to the terms of the DroneAware Feeder Node Software License. See [LICENSE](LICENSE) for details.*
