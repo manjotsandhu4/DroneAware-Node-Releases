@@ -115,6 +115,12 @@ def parse_location(data: bytes) -> dict:
     height_type = (data[1] >> 2) & 0x01
     lat = struct.unpack_from('<i', data, 2)[0] * 1e-7
     lon = struct.unpack_from('<i', data, 6)[0] * 1e-7
+
+    # Reject null/placeholder GPS values broadcast before lock (e.g. DJI firmware
+    # transmits lat>90 or lon>180 as a sentinel until GPS acquires).
+    if abs(lat) > 90.0 or abs(lon) > 180.0:
+        return {}
+
     alt_geodetic = struct.unpack_from('<H', data, 12)[0] * 0.5 - 1000.0
     height       = struct.unpack_from('<H', data, 14)[0] * 0.5 - 1000.0
     speed        = data[16] * (0.75 if speed_mult else 0.25)
@@ -283,8 +289,8 @@ def _extract_beacon_rid(body: bytes) -> bytes | None:
             break
         if tag_id == 221:  # Vendor Specific IE
             info = body[offset + 2: end]
-            if len(info) >= 29 and info[:3] == ASTM_OUI and info[3] == ASTM_OUI_TYPE:
-                return info[4:29]  # exactly 25 bytes
+            if len(info) >= 5 and info[:3] == ASTM_OUI and info[3] == ASTM_OUI_TYPE:
+                return info[4:]  # full payload — may be single msg or Message Pack
         offset = end
     return None
 
@@ -438,28 +444,47 @@ class WiFiFeeder:
         # ---- Wi-Fi Beacon Remote ID (subtype 8) ----
         if subtype == 8:
             rid_payload = _extract_beacon_rid(body)
-            if rid_payload is not None:
-                self.count += 1
-                decoded = decode_rid_message(rid_payload)
+            if rid_payload is None:
+                return
 
+            decoded = decode_rid_message(rid_payload)
+            if decoded is None:
+                return
+
+            # Unpack Message Pack into individual sub-messages so the server
+            # receives each message type (Basic ID, Location, System, etc.)
+            # as a discrete event rather than one opaque blob.
+            if decoded.get("message_type") == "Message Pack":
+                sub_messages = decoded.get("messages", [])
+            else:
+                sub_messages = [decoded]
+
+            ts = time.time()
+            for msg in sub_messages:
+                # Drop Location/Vector messages with no valid GPS fix
+                if msg.get("message_type") == "Location/Vector" and "latitude" not in msg:
+                    continue
+                self.count += 1
+                raw_hex = msg.get("raw_hex", rid_payload.hex().upper())
                 event = {
                     "node_id":   self.node_id,
-                    "timestamp": time.time(),
+                    "timestamp": ts,
                     "radio":     "wifi_beacon",
                     "mac":       addr2,
                     "rssi":      rssi,
-                    "payload":   rid_payload.hex().upper(),
-                    "decoded":   decoded,
+                    "payload":   raw_hex,
+                    "decoded":   msg,
                 }
-
-                if self.verbose or (decoded and decoded.get("message_type") == "Basic ID"):
-                    uas_id = decoded.get("uas_id", "") if decoded else ""
+                if self.verbose or msg.get("message_type") in ("Basic ID", "Location/Vector"):
+                    mtype  = msg.get("message_type", "?")
+                    uas_id = msg.get("uas_id", "")
+                    lat    = msg.get("latitude", "")
+                    lon    = msg.get("longitude", "")
+                    detail = f"UAS-ID={uas_id}" if uas_id else f"lat={lat} lon={lon}" if lat else ""
                     log.info(
                         f"[WiFi-Beacon] MAC={addr2}  RSSI={rssi}dBm  "
-                        f"Type={decoded.get('message_type','?') if decoded else '?'}  "
-                        f"UAS-ID={uas_id}"
+                        f"Type={mtype}  {detail}"
                     )
-
                 self.forwarder.add(event)
             return
 
