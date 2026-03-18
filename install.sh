@@ -12,7 +12,6 @@ RELEASE_TAG="v1.0.0"
 GITHUB_REPO="fduflyer/DroneAware-Node"
 INSTALL_DIR="/opt/droneaware"
 BIN_DIR="/usr/local/bin"
-ENROLLMENT_SECRET="cbb1348c-33bd-4b52-abae-24892961d862"
 SERVER_URL="https://api.droneaware.io/api"
 
 # ---------------------------------------------------------------------------
@@ -227,67 +226,79 @@ BLE_ADAPTER_MAC=${BLE_ADAPTER_MAC}
 WIFI_ADAPTER=${WIFI_ADAPTER}
 BATCH_SIZE=200
 FLUSH_INTERVAL=5.0
-ENROLLMENT_SECRET=${ENROLLMENT_SECRET}
 EOF
     chmod 600 "${INSTALL_DIR}/config.env"
     info "Configuration written to ${INSTALL_DIR}/config.env"
 }
 
 # ---------------------------------------------------------------------------
-# 8. Enroll node
+# 8. Enroll node — requires a logged-in DroneAware account
 # ---------------------------------------------------------------------------
 enroll_node() {
-    heading "Enrolling Node with DroneAware Network"
-    echo "  Contacting droneaware.io..."
+    heading "Node Enrollment"
+    echo ""
+    echo "  To enroll this node you need a DroneAware account."
+    echo ""
+    echo "  1. Open ${BOLD}https://flight.droneaware.io/nodes${NC} in your browser"
+    echo "  2. Log in (or create a free account)"
+    echo "  3. Click ${BOLD}Add Node${NC}"
+    echo "  4. Accept the Contributor Agreement if prompted"
+    echo "  5. Copy the enrollment token shown (valid for 15 minutes)"
+    echo ""
 
-    # Run feeder briefly — it enrolls, saves token, writes claim.txt, then we kill it
-    "${BIN_DIR}/ble_feeder" \
-        --node-id "$NODE_ID" \
-        --server "$SERVER_URL" \
-        --enrollment-secret "$ENROLLMENT_SECRET" \
-        --adapter-mac "$BLE_ADAPTER_MAC" \
-        > /tmp/droneaware-enroll.log 2>&1 &
-    local pid=$!
-    sleep 15
-    kill "$pid" 2>/dev/null || true
-    wait "$pid" 2>/dev/null || true
+    local enrollment_token
+    while true; do
+        read -rp "  Paste enrollment token: " enrollment_token
+        enrollment_token="${enrollment_token// /}"
+        [[ -n "$enrollment_token" ]] && break
+        warn "Enrollment token cannot be empty."
+    done
 
-    if [[ -f /etc/droneaware/claim.txt ]]; then
-        CLAIM_CODE=$(grep "^Claim code:" /etc/droneaware/claim.txt | awk '{print $3}')
-        CLAIM_URL=$(grep "^Claim URL:"  /etc/droneaware/claim.txt | awk '{print $3}')
-        info "Node enrolled successfully."
-    else
-        warn "Enrollment may have failed — claim info not found."
-        warn "Check: sudo journalctl -u droneaware-ble"
-        CLAIM_CODE=""
-        CLAIM_URL=""
+    echo ""
+    echo "  Contacting DroneAware network..."
+
+    local response
+    response=$(curl -sf --max-time 15 \
+        -H "Content-Type: application/json" \
+        -d "{\"node_id\":\"${NODE_ID}\",\"enrollment_token\":\"${enrollment_token}\"}" \
+        "${SERVER_URL}/node/enroll" 2>/dev/null) || true
+
+    if [[ -z "$response" ]]; then
+        fatal "Enrollment request failed. Check your internet connection and try again."
     fi
+
+    local node_credential
+    node_credential=$(echo "$response" | grep -oP '"node_credential"\s*:\s*"\K[^"]+' || true)
+
+    if [[ -z "$node_credential" ]]; then
+        local error_msg
+        error_msg=$(echo "$response" | grep -oP '"detail"\s*:\s*"\K[^"]+' || true)
+        if [[ -n "$error_msg" ]]; then
+            fatal "Enrollment failed: ${error_msg}"
+        fi
+        fatal "Enrollment failed. The token may have expired — generate a new one and try again."
+    fi
+
+    echo "$node_credential" > /etc/droneaware/token
+    chmod 600 /etc/droneaware/token
+    info "Node enrolled and credential saved."
 }
 
 # ---------------------------------------------------------------------------
 # 9. Print summary
 # ---------------------------------------------------------------------------
 print_summary() {
-    local w=70
     echo ""
     echo -e "${BOLD}"
     echo "╔══════════════════════════════════════════════════════════════════════╗"
     echo "║                    Installation Complete!                           ║"
     echo "╠══════════════════════════════════════════════════════════════════════╣"
-    printf  "║  Node ID   : %-55s║\n" "$NODE_ID"
-    if [[ -n "$CLAIM_CODE" ]]; then
-        printf "║  Claim Code: %-55s║\n" "$CLAIM_CODE"
-        printf "║  Claim URL : %-55s║\n" "$CLAIM_URL"
-        echo  "╠══════════════════════════════════════════════════════════════════════╣"
-        echo  "║  NEXT STEP: Visit the Claim URL above to activate your node on     ║"
-        echo  "║  the DroneAware network.                                            ║"
-    else
-        echo  "╠══════════════════════════════════════════════════════════════════════╣"
-        echo  "║  NEXT STEP: Enrollment did not complete automatically.              ║"
-        echo  "║  Run: sudo journalctl -u droneaware-ble -f  to diagnose.           ║"
-    fi
+    printf  "║  Node ID : %-57s║\n" "$NODE_ID"
     echo  "╠══════════════════════════════════════════════════════════════════════╣"
-    echo  "║  Feeders will start automatically on next reboot.                  ║"
+    echo  "║  Your node is enrolled and active on the DroneAware network.       ║"
+    echo  "║  View it at: https://flight.droneaware.io/nodes                    ║"
+    echo  "╠══════════════════════════════════════════════════════════════════════╣"
+    echo  "║  Feeders start automatically on next reboot.                       ║"
     echo  "║  To start now:  sudo systemctl start droneaware-ble droneaware-wifi║"
     echo  "║  To view logs:  journalctl -u droneaware-ble -f                    ║"
     echo  "╚══════════════════════════════════════════════════════════════════════╝"

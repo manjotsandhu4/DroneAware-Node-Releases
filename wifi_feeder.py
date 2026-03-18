@@ -27,6 +27,7 @@ import logging
 import argparse
 import socket
 import os
+import sys
 import requests
 
 # -- Logging -------------------------------------------------------------------
@@ -549,73 +550,22 @@ class WiFiFeeder:
 TOKEN_FILE = "/etc/droneaware/token"
 
 
-def resolve_token(node_id: str, enrollment_secret: str,
-                  lat=None, lon=None, elevation_agl_m=None) -> str:
-    """Return auth token, enrolling if necessary.
+def resolve_token() -> str:
+    """Load the node credential written by the installer.
 
-    Resolution order:
-      1. Token file at TOKEN_FILE (written on first enrollment)
-      2. POST /api/node/enroll with enrollment_secret (saves result to file)
-      3. Empty string — unauthenticated (logs a warning)
+    Exits with a clear error if the credential is missing — enrollment
+    is handled entirely by the installer, not the feeder.
     """
     if os.path.exists(TOKEN_FILE):
         token = open(TOKEN_FILE).read().strip()
         if token:
-            log.info(f"Loaded token from {TOKEN_FILE}")
+            log.info(f"Loaded node credential from {TOKEN_FILE}")
             return token
 
-    if not enrollment_secret:
-        log.warning("No token and no ENROLLMENT_SECRET — running unauthenticated")
-        return ""
-
-    log.info(f"Enrolling node {node_id} with droneaware.io ...")
-    try:
-        payload = {"node_id": node_id, "enrollment_secret": enrollment_secret}
-        if lat is not None:
-            payload["lat"] = lat
-        if lon is not None:
-            payload["lon"] = lon
-        if elevation_agl_m is not None:
-            payload["elevation_agl_m"] = elevation_agl_m
-
-        r = requests.post(
-            "https://api.droneaware.io/api/node/enroll",
-            json=payload,
-            timeout=10,
-        )
-        r.raise_for_status()
-        data  = r.json()
-        token = data["auth_token"]
-        os.makedirs(os.path.dirname(TOKEN_FILE), exist_ok=True)
-        with open(TOKEN_FILE, "w") as f:
-            f.write(token)
-        log.info(f"Enrolled successfully; token saved to {TOKEN_FILE}")
-
-        claim_code = data.get("claim_code")
-        claim_url  = data.get("claim_url")
-        if claim_code and claim_url:
-            msg = (
-                "\n╔══════════════════════════════════════════════════════╗\n"
-                f"║  Node {node_id} enrolled successfully.".ljust(55) + "║\n"
-                "║  Claim this node to unlock enhanced features:        ║\n"
-                f"║  {claim_url}".ljust(55) + "║\n"
-                "║  Code expires in 48 hours.                           ║\n"
-                "╚══════════════════════════════════════════════════════╝\n"
-            )
-            print(msg)
-            try:
-                os.makedirs("/etc/droneaware", exist_ok=True)
-                with open("/etc/droneaware/claim.txt", "w") as f:
-                    f.write(f"Node: {node_id}\n")
-                    f.write(f"Claim URL: {claim_url}\n")
-                    f.write(f"Claim code: {claim_code}\n")
-            except Exception as e:
-                print(f"Warning: could not save claim info: {e}")
-
-        return token
-    except Exception as e:
-        log.error(f"Enrollment failed: {e} — running unauthenticated")
-        return ""
+    log.error("No node credential found at %s.", TOKEN_FILE)
+    log.error("This node has not been enrolled. Run the DroneAware installer:")
+    log.error("  curl -fsSL https://droneaware.io/install | sudo bash")
+    sys.exit(1)
 
 
 # -- Entry Point ---------------------------------------------------------------
@@ -652,27 +602,9 @@ def main():
         "--verbose", "-v", action="store_true",
         help="Log every decoded packet"
     )
-    parser.add_argument(
-        "--token", default=os.environ.get("NODE_TOKEN", ""),
-        help="Node auth token (X-Node-Token header). Falls back to NODE_TOKEN env var."
-    )
-    parser.add_argument(
-        "--enrollment-secret", default=os.environ.get("ENROLLMENT_SECRET", ""),
-        help="Pre-shared secret for /api/node/enroll. Falls back to ENROLLMENT_SECRET env var."
-    )
     args = parser.parse_args()
 
-    lat           = float(os.environ.get("NODE_LAT", "0") or "0") or None
-    lon           = float(os.environ.get("NODE_LON", "0") or "0") or None
-    elevation_agl = float(os.environ.get("NODE_ELEVATION_AGL_M", "0") or "0") or None
-
-    token = args.token or resolve_token(
-        args.node_id,
-        args.enrollment_secret,
-        lat=lat,
-        lon=lon,
-        elevation_agl_m=elevation_agl,
-    )
+    token = resolve_token()
 
     feeder = WiFiFeeder(
         iface=args.iface,
