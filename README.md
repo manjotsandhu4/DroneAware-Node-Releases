@@ -104,7 +104,7 @@ DroneAware server to correctly place detections on the map.
 Run this single command:
 
 ```bash
-curl -fsSL https://droneaware.io/install | sudo bash
+curl -fsSL https://github.com/fduflyer/DroneAware-Node/releases/download/v1.0.0/install.sh | sudo bash
 ```
 
 The installer will:
@@ -123,33 +123,31 @@ The installer will:
 4. **Install system packages and download binaries** from the
    [v1.0.0 release](https://github.com/fduflyer/DroneAware-Node/releases/tag/v1.0.0).
 
-5. **Enroll the node** with the DroneAware network and display your claim code.
+5. **Enroll the node** — you will be prompted to open
+   [flight.droneaware.io/nodes](https://flight.droneaware.io/nodes), log in,
+   click **Add Node**, and paste the enrollment token shown. The node is
+   immediately active on your account — no separate claim step required.
 
-### Step 4 — Claim Your Node
+### Step 4 — Confirm Your Node is Live
 
-At the end of installation, the installer displays:
+At the end of installation the installer displays:
 
 ```
 ╔══════════════════════════════════════════════════════════════════════╗
 ║                    Installation Complete!                           ║
-║  Node ID   : my-garage                                              ║
-║  Claim Code: 6F4EZ8                                                 ║
-║  Claim URL : https://flight.droneaware.io/claim.html?code=6F4EZ8   ║
+║  Node ID : my-garage                                                ║
 ╠══════════════════════════════════════════════════════════════════════╣
-║  NEXT STEP: Visit the Claim URL above to activate your node on     ║
-║  the DroneAware network.                                            ║
+║  Your node is enrolled and active on the DroneAware network.       ║
+║  View it at: https://flight.droneaware.io/nodes                    ║
 ╚══════════════════════════════════════════════════════════════════════╝
 ```
 
-Open the Claim URL in a browser, log in or create a free account, and link the
-node to your account. This gives you:
+Log into [flight.droneaware.io/nodes](https://flight.droneaware.io/nodes) to
+see your node on the live map and access:
 
-- Your node on the live map
 - Detection history and alerts
 - Remote node management
-
-> Your claim code is saved to `/etc/droneaware/claim.txt` and expires in 48
-> hours. If you miss the window, contact support at droneaware.io.
+- Network contribution statistics
 
 ---
 
@@ -163,9 +161,6 @@ sudo systemctl status droneaware-wifi
 # Watch live detection logs
 sudo journalctl -u droneaware-ble -f
 sudo journalctl -u droneaware-wifi -f
-
-# View your claim URL
-cat /etc/droneaware/claim.txt
 
 # Edit node config (location, server URL, etc.)
 sudo nano /opt/droneaware/config.env
@@ -217,19 +212,8 @@ Common causes:
 - WiFi: verify your credentials are correct, then reboot and try again
 
 **I need to change my node's location**
-Edit `/opt/droneaware/config.env` and update `NODE_LAT`, `NODE_LON`, and
-`NODE_ELEVATION_AGL_M`, then restart:
-```bash
-sudo nano /opt/droneaware/config.env
-sudo systemctl restart droneaware-ble droneaware-wifi
-```
-Also contact support at droneaware.io to update the location on the server side.
-
-**I lost my claim URL**
-```bash
-cat /etc/droneaware/claim.txt
-```
-If the file is gone and the 48-hour window has passed, contact support.
+Log into [flight.droneaware.io/nodes](https://flight.droneaware.io/nodes), select
+your node, and update its location there. Node location is managed server-side.
 
 ---
 
@@ -240,14 +224,11 @@ If the file is gone and the 48-hour window has passed, contact support.
 | `/usr/local/bin/ble_feeder` | BLE Remote ID feeder binary |
 | `/usr/local/bin/wifi_feeder` | WiFi Remote ID feeder binary |
 | `/usr/local/bin/droneaware-bt-select` | Boot-time Bluetooth adapter selector |
-| `/opt/droneaware/config.env` | Node configuration (ID, location, adapters, token) |
-| `/etc/droneaware/token` | Node auth token (written at enrollment) |
-| `/etc/droneaware/claim.txt` | Claim URL and code from enrollment |
+| `/opt/droneaware/config.env` | Node configuration (ID, location, adapters) |
+| `/etc/droneaware/token` | Node credential (written at enrollment) |
 | `/etc/systemd/system/droneaware-ble.service` | BLE feeder systemd unit |
 | `/etc/systemd/system/droneaware-wifi.service` | WiFi feeder systemd unit |
 | `/etc/systemd/system/droneaware-bt-select.service` | BT selector systemd unit |
-| `/var/log/droneaware_ble.log` | BLE feeder log file |
-| `/var/log/droneaware_wifi.log` | WiFi feeder log file |
 
 ---
 
