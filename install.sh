@@ -1,6 +1,6 @@
 #!/bin/bash
 # DroneAware Feeder Node Installer
-# Version: 1.0.4
+# Version: 1.0.5
 # Usage:  sudo bash install.sh
 #
 # Requires: Raspberry Pi OS Bookworm 64-bit, internet connection,
@@ -8,7 +8,7 @@
 
 set -e
 
-RELEASE_TAG="v1.0.4"
+RELEASE_TAG="v1.0.5"
 GITHUB_REPO="fduflyer/DroneAware-Node-Releases"
 INSTALL_DIR="/opt/droneaware"
 BIN_DIR="/usr/local/bin"
@@ -34,7 +34,7 @@ show_terms() {
     clear
     echo -e "${BOLD}"
     echo "╔══════════════════════════════════════════════════════════════════════╗"
-    echo "║            DroneAware Feeder Node — Installer v1.0.4               ║"
+    echo "║            DroneAware Feeder Node — Installer v1.0.5               ║"
     echo "╚══════════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 
@@ -159,7 +159,8 @@ pin_wifi_unmanaged() {
 [keyfile]
 unmanaged-devices=interface-name:${WIFI_ADAPTER}
 EOF
-    systemctl reload NetworkManager > /dev/null 2>&1 || systemctl restart NetworkManager > /dev/null 2>&1
+    # Apply immediately without restarting NM (restart drops SSH)
+    nmcli device set "${WIFI_ADAPTER}" managed no > /dev/null 2>&1 || true
     info "${WIFI_ADAPTER} set as unmanaged (monitor-only) in NetworkManager."
 }
 
