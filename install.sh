@@ -1,6 +1,6 @@
 #!/bin/bash
 # DroneAware Feeder Node Installer
-# Version: 1.0.0
+# Version: 1.0.2
 # Usage:  sudo bash install.sh
 #
 # Requires: Raspberry Pi OS Bookworm 64-bit, internet connection,
@@ -8,7 +8,7 @@
 
 set -e
 
-RELEASE_TAG="v1.0.1"
+RELEASE_TAG="v1.0.2"
 GITHUB_REPO="fduflyer/DroneAware-Node-Releases"
 INSTALL_DIR="/opt/droneaware"
 BIN_DIR="/usr/local/bin"
@@ -34,7 +34,7 @@ show_terms() {
     clear
     echo -e "${BOLD}"
     echo "╔══════════════════════════════════════════════════════════════════════╗"
-    echo "║            DroneAware Feeder Node — Installer v1.0.1               ║"
+    echo "║            DroneAware Feeder Node — Installer v1.0.2               ║"
     echo "╚══════════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 
@@ -76,7 +76,7 @@ show_terms() {
 accept_terms() {
     show_terms
     while true; do
-        read -rp "  Do you accept these terms and conditions? [yes/no]: " answer
+        read -rp "  Do you accept these terms and conditions? [yes/no]: " answer </dev/tty
         case "${answer,,}" in
             yes)
                 info "Terms accepted."
@@ -107,7 +107,7 @@ prompt_node_id() {
     echo "  Examples: my-garage, rooftop-east, backyard-01"
     echo ""
     while true; do
-        read -rp "  Node nickname: " NODE_ID
+        read -rp "  Node nickname: " NODE_ID </dev/tty
         NODE_ID="${NODE_ID// /-}"
         NODE_ID="${NODE_ID,,}"
         if [[ -z "$NODE_ID" ]]; then
@@ -248,7 +248,7 @@ enroll_node() {
 
     local enrollment_token
     while true; do
-        read -rp "  Paste enrollment token: " enrollment_token
+        read -rp "  Paste enrollment token: " enrollment_token </dev/tty
         enrollment_token="${enrollment_token// /}"
         [[ -n "$enrollment_token" ]] && break
         warn "Enrollment token cannot be empty."
