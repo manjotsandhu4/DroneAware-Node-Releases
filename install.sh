@@ -1,6 +1,6 @@
 #!/bin/bash
 # DroneAware Feeder Node Installer
-# Version: 1.0.5
+# Version: 1.0.6
 # Usage:  sudo bash install.sh
 #
 # Requires: Raspberry Pi OS Bookworm 64-bit, internet connection,
@@ -8,7 +8,7 @@
 
 set -e
 
-RELEASE_TAG="v1.0.5"
+RELEASE_TAG="v1.0.6"
 GITHUB_REPO="fduflyer/DroneAware-Node-Releases"
 INSTALL_DIR="/opt/droneaware"
 BIN_DIR="/usr/local/bin"
@@ -34,7 +34,7 @@ show_terms() {
     clear
     echo -e "${BOLD}"
     echo "╔══════════════════════════════════════════════════════════════════════╗"
-    echo "║            DroneAware Feeder Node — Installer v1.0.5               ║"
+    echo "║            DroneAware Feeder Node — Installer v1.0.6               ║"
     echo "╚══════════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 
@@ -147,7 +147,34 @@ detect_wifi_adapter() {
 }
 
 # ---------------------------------------------------------------------------
-# 4. Pin WiFi monitor adapter as unmanaged in NetworkManager
+# 4. Persist any netplan-backed WiFi profiles to disk before touching NM
+# ---------------------------------------------------------------------------
+persist_wifi_profiles() {
+    heading "Securing WiFi Profiles"
+    local count=0
+
+    while IFS= read -r name; do
+        [[ -z "$name" ]] && continue
+        # Check if this profile is backed by a real system-connections file
+        local fname
+        fname=$(nmcli -f FILENAME con show "$name" 2>/dev/null | awk 'NR==2{print $1}')
+        if [[ "$fname" != /etc/NetworkManager/system-connections/* ]]; then
+            # Force NM to write the profile to disk by doing a no-op modify
+            nmcli con modify "$name" connection.autoconnect yes 2>/dev/null || true
+            count=$((count + 1))
+            info "Persisted: $name"
+        fi
+    done < <(nmcli -t -f NAME,TYPE con show 2>/dev/null | grep "802-11-wireless" | cut -d: -f1)
+
+    if [[ $count -gt 0 ]]; then
+        info "$count WiFi profile(s) secured to /etc/NetworkManager/system-connections/"
+    else
+        info "All WiFi profiles already backed by persistent files."
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# 5. Pin WiFi monitor adapter as unmanaged in NetworkManager
 # ---------------------------------------------------------------------------
 pin_wifi_unmanaged() {
     heading "Configuring NetworkManager"
@@ -165,7 +192,7 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
-# 5. System packages
+# 6. System packages
 # ---------------------------------------------------------------------------
 install_packages() {
     heading "Installing System Packages"
@@ -179,7 +206,7 @@ install_packages() {
 }
 
 # ---------------------------------------------------------------------------
-# 6. Download binaries from GitHub Release
+# 7. Download binaries from GitHub Release
 # ---------------------------------------------------------------------------
 download_binaries() {
     heading "Downloading DroneAware Binaries ($RELEASE_TAG)"
@@ -197,7 +224,7 @@ download_binaries() {
 }
 
 # ---------------------------------------------------------------------------
-# 7. Install bt-select script and service files
+# 8. Install bt-select script and service files
 # ---------------------------------------------------------------------------
 install_services() {
     heading "Installing Services"
@@ -224,7 +251,7 @@ install_services() {
 }
 
 # ---------------------------------------------------------------------------
-# 8. Write config.env
+# 9. Write config.env
 # ---------------------------------------------------------------------------
 write_config() {
     heading "Writing Configuration"
@@ -250,7 +277,7 @@ EOF
 }
 
 # ---------------------------------------------------------------------------
-# 9. Enroll node — requires a logged-in DroneAware account
+# 10. Enroll node — requires a logged-in DroneAware account
 # ---------------------------------------------------------------------------
 enroll_node() {
     heading "Node Enrollment"
@@ -303,7 +330,7 @@ enroll_node() {
 }
 
 # ---------------------------------------------------------------------------
-# 10. Print summary
+# 11. Print summary
 # ---------------------------------------------------------------------------
 print_summary() {
     echo ""
@@ -334,6 +361,7 @@ require_root
 accept_terms
 prompt_node_id
 detect_wifi_adapter
+persist_wifi_profiles
 pin_wifi_unmanaged
 install_packages
 download_binaries

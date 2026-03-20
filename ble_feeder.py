@@ -302,7 +302,7 @@ class BLEFeeder:
                                 json={
                                     "node_id":      self.node_id,
                                     "uptime_s":     int(time.monotonic() - self.start_time),
-                                    "fw_version":   "1.0.0",
+                                    "fw_version":   "1.0.6",
                                     "cpu_temp_c":   cpu_temp,
                                     "ble_ok":       ble_ok,
                                     "wifi_ok":      wifi_ok,
