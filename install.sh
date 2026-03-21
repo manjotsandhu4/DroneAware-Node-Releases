@@ -1,6 +1,6 @@
 #!/bin/bash
 # DroneAware Feeder Node Installer
-# Version: 1.0.8
+# Version: 1.0.9
 # Usage:  sudo bash install.sh
 #
 # Requires: Raspberry Pi OS Bookworm 64-bit, internet connection,
@@ -8,7 +8,7 @@
 
 set -e
 
-RELEASE_TAG="v1.0.8"
+RELEASE_TAG="v1.0.9"
 GITHUB_REPO="fduflyer/DroneAware-Node-Releases"
 INSTALL_DIR="/opt/droneaware"
 BIN_DIR="/usr/local/bin"
@@ -34,7 +34,7 @@ show_terms() {
     clear
     echo -e "${BOLD}"
     echo "╔══════════════════════════════════════════════════════════════════════╗"
-    echo "║            DroneAware Feeder Node — Installer v1.0.8               ║"
+    echo "║            DroneAware Feeder Node — Installer v1.0.9               ║"
     echo "╚══════════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 
@@ -403,10 +403,21 @@ enroll_node() {
     echo ""
     echo "  Contacting DroneAware network..."
 
+    # Build JSON-safe values for optional numeric/boolean fields
+    local lat_json lon_json has_gps_json
+    if [[ -n "${NODE_LAT:-}" ]]; then
+        lat_json="${NODE_LAT}"
+        lon_json="${NODE_LON}"
+    else
+        lat_json="null"
+        lon_json="null"
+    fi
+    [[ -n "${GPS_DEVICE:-}" ]] && has_gps_json="true" || has_gps_json="false"
+
     local response
     response=$(curl -sf --max-time 15 \
         -H "Content-Type: application/json" \
-        -d "{\"node_id\":\"${NODE_ID}\",\"enrollment_token\":\"${enrollment_token}\"}" \
+        -d "{\"node_id\":\"${NODE_ID}\",\"enrollment_token\":\"${enrollment_token}\",\"mobile\":${NODE_MOBILE},\"has_gps\":${has_gps_json},\"lat\":${lat_json},\"lon\":${lon_json}}" \
         "${SERVER_URL}/node/enroll" 2>/dev/null) || true
 
     if [[ -z "$response" ]]; then
