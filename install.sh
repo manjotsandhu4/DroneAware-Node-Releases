@@ -1,6 +1,6 @@
 #!/bin/bash
 # DroneAware Feeder Node Installer
-# Version: 1.0.10
+# Version: 1.0.11
 # Usage:  sudo bash install.sh
 #
 # Requires: Raspberry Pi OS Bookworm 64-bit, internet connection,
@@ -8,8 +8,9 @@
 
 set -e
 
-INSTALLER_VERSION="v1.0.10"
+INSTALLER_VERSION="v1.0.11"
 BINARY_VERSION="v1.0.7"   # last release containing updated binaries
+SERVICE_VERSION="v1.0.6"  # last release containing service files and bt-select script
 GITHUB_REPO="fduflyer/DroneAware-Node-Releases"
 INSTALL_DIR="/opt/droneaware"
 BIN_DIR="/usr/local/bin"
@@ -35,7 +36,7 @@ show_terms() {
     clear
     echo -e "${BOLD}"
     echo "╔══════════════════════════════════════════════════════════════════════╗"
-    echo "║            DroneAware Feeder Node — Installer v1.0.10              ║"
+    echo "║            DroneAware Feeder Node — Installer v1.0.11              ║"
     echo "╚══════════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 
@@ -326,7 +327,7 @@ download_binaries() {
 # ---------------------------------------------------------------------------
 install_services() {
     heading "Installing Services"
-    local base_url="https://github.com/${GITHUB_REPO}/releases/download/${BINARY_VERSION}"
+    local base_url="https://github.com/${GITHUB_REPO}/releases/download/${SERVICE_VERSION}"
 
     # bt-select helper
     curl -fsSL --retry 3 \
