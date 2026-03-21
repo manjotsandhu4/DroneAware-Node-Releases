@@ -1,6 +1,6 @@
 #!/bin/bash
 # DroneAware Feeder Node Installer
-# Version: 1.0.6
+# Version: 1.0.7
 # Usage:  sudo bash install.sh
 #
 # Requires: Raspberry Pi OS Bookworm 64-bit, internet connection,
@@ -8,7 +8,7 @@
 
 set -e
 
-RELEASE_TAG="v1.0.6"
+RELEASE_TAG="v1.0.7"
 GITHUB_REPO="fduflyer/DroneAware-Node-Releases"
 INSTALL_DIR="/opt/droneaware"
 BIN_DIR="/usr/local/bin"
@@ -34,7 +34,7 @@ show_terms() {
     clear
     echo -e "${BOLD}"
     echo "╔══════════════════════════════════════════════════════════════════════╗"
-    echo "║            DroneAware Feeder Node — Installer v1.0.6               ║"
+    echo "║            DroneAware Feeder Node — Installer v1.0.7               ║"
     echo "╚══════════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 
@@ -202,6 +202,12 @@ install_packages() {
         > /dev/null 2>&1
     systemctl enable bluetooth > /dev/null 2>&1
     systemctl start bluetooth  > /dev/null 2>&1
+
+    # Disable boot-delay services — reduces boot-to-SSH from ~15s to <5s
+    systemctl disable cloud-init cloud-init-local cloud-init-main cloud-init-network > /dev/null 2>&1 || true
+    systemctl disable NetworkManager-wait-online.service > /dev/null 2>&1 || true
+    info "Boot optimisations applied."
+
     info "System packages ready."
 }
 

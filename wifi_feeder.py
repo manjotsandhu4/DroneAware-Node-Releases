@@ -560,7 +560,7 @@ class WiFiFeeder:
                             json={
                                 "node_id":    self.node_id,
                                 "uptime_s":   int(time.time() - self.start_time),
-                                "fw_version": "1.0.6",
+                                "fw_version": "1.0.7",
                             },
                             headers={"X-Node-Token": self.token},
                             timeout=5,
