@@ -1,10 +1,18 @@
 # DroneAware Node — Setup Guide
 
-**Turn a Raspberry Pi into a live drone detection sensor in under 10 minutes.**
+Detect nearby drones (Remote ID) with a Raspberry Pi in minutes
 
-DroneAware nodes listen for FAA-mandated Remote ID broadcasts from drones flying
-in your area and forward them to the DroneAware network, where they appear on a
+Get a Raspberry Pi 4 and an external wifi adapter, run this single command,and you could be detecting drones around you in 10-15 minutes. 
+
+```bash
+curl -fsSL https://github.com/fduflyer/DroneAware-Node-Releases/releases/download/v1.0.11/install.sh | sudo bash
+```
+
+Your new DronwAware node will listen for FAA-mandated Remote ID broadcasts from drones flying
+in your area and forward them to the DroneAware Network, where they appear on a
 live map at [droneaware.io](https://droneaware.io).
+
+Once connected, you'll also get real-time email alerts anytime your node(s) detect a drone. You can also go back and view all of your detectioms by date and time to watch a replay of their flight paths. 
 
 ---
 
@@ -104,7 +112,7 @@ DroneAware server to correctly place detections on the map.
 Run this single command:
 
 ```bash
-curl -fsSL https://github.com/fduflyer/DroneAware-Node/releases/download/v1.0.0/install.sh | sudo bash
+curl -fsSL https://github.com/fduflyer/DroneAware-Node-Releases/releases/download/v1.0.11/install.sh | sudo bash
 ```
 
 The installer will:
@@ -121,7 +129,7 @@ The installer will:
    adapter automatically. If none is found, it will exit with instructions.
 
 4. **Install system packages and download binaries** from the
-   [v1.0.0 release](https://github.com/fduflyer/DroneAware-Node/releases/tag/v1.0.0).
+   [v1.0.11 release](https://github.com/fduflyer/DroneAware-Node/releases/tag/v1.0.11).
 
 5. **Enroll the node** — you will be prompted to open
    [flight.droneaware.io/nodes](https://flight.droneaware.io/nodes), log in,
