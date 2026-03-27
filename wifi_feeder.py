@@ -219,6 +219,14 @@ def _parse_radiotap(data: bytes) -> tuple[int, int | None]:
     rssi   = None
     offset = 8  # first field starts after the fixed 8-byte header
 
+    # Bit 31 (EXT): chipsets like Atheros AR9271 append additional present-bitmask
+    # words before the actual fields begin.  Walk past them — standard field bits
+    # (0–28) live only in the first present word, so `present` stays unchanged.
+    while present & (1 << 31):
+        if offset + 4 > len(data):
+            return rt_len, None
+        offset += 4
+
     # Bit 0: TSFT — uint64, align 8
     if present & (1 << 0):
         offset = (offset + 7) & ~7
@@ -560,7 +568,7 @@ class WiFiFeeder:
                             json={
                                 "node_id":    self.node_id,
                                 "uptime_s":   int(time.time() - self.start_time),
-                                "fw_version": "1.0.7",
+                                "fw_version": "1.0.12",
                             },
                             headers={"X-Node-Token": self.token},
                             timeout=5,
