@@ -1,10 +1,22 @@
 # DroneAware Node — Setup Guide
 
-**Turn a Raspberry Pi into a live drone detection sensor in under 10 minutes.**
+Detect nearby drones (Remote ID) with a Raspberry Pi.
 
-DroneAware nodes listen for FAA-mandated Remote ID broadcasts from drones flying
-in your area and forward them to the DroneAware network, where they appear on a
-live map at [droneaware.io](https://droneaware.io).
+![DroneAware Screenshot](https://github.com/fduflyer/DroneAware-Node-Releases/blob/6ad45edcb46c6b23012bfdd0ee40fc80a8e9320b/IMG_3421.jpeg)
+
+Get a Raspberry Pi 4 and an external wifi adapter, run this single command, and you could be detecting drones around you up to 5 miles away with the right antenna. 
+
+```bash
+curl -fsSL https://github.com/fduflyer/DroneAware-Node-Releases/releases/download/v1.0.14/install.sh | sudo bash
+```
+
+Your new DroneAware node will listen for FAA-mandated Remote ID broadcasts from drones flying
+in your area and forward them to the DroneAware Network, where they appear on a
+live map at [droneaware.io](https://droneaware.io/live.html).
+
+Once connected, you'll also get real-time email alerts anytime your node(s) detect a drone. You can also go back and view all of your detectioms by date and time to watch a replay of their flight paths. 
+
+![DroneAware Screenshot2](https://github.com/fduflyer/DroneAware-Node-Releases/blob/10c30b8860323ae1a3d88da870fb7073cec8d9a1/IMG_3538.png)
 
 ---
 
@@ -15,7 +27,7 @@ live map at [droneaware.io](https://droneaware.io).
 | Raspberry Pi 4 (1 GB or more) | 2 GB+ recommended if running other software |
 | MicroSD card (16 GB+, Class 10) | Samsung Endurance or SanDisk High Endurance preferred |
 | USB Bluetooth adapter | **Sena UD100** or any CSR/Cambridge Silicon Radio USB dongle |
-| WiFi adapter (optional, recommended) | **Alfa AWUS036N** (Ralink RT3070 chipset, 2.4 GHz) |
+| WiFi adapter (required) | **Alfa AWUS036N** (Ralink RT3070 chipset, 2.4 GHz) |
 | 5V/3A USB-C power supply | Official Raspberry Pi PSU recommended |
 | Ethernet cable or WiFi credentials | For initial setup |
 
@@ -54,16 +66,18 @@ Drone (Remote ID broadcast)
   → Pi USB BT/WiFi adapter (raw capture)
     → ble_feeder / wifi_feeder (batch over HTTPS)
       → api.droneaware.io (decode + store)
-        → flight.droneaware.io (live map)
+        → droneaware.io (live map)
 ```
 
 Both services start automatically at boot, restart on crash, and send a
 heartbeat to the server every 60 seconds so the dashboard shows the node as
-online. No data is stored on the Pi — everything is forwarded in real time.
+online. No data is stored on the Pi, everything is forwarded in real time.
+
+![DroneAware Screenshot3](https://github.com/fduflyer/DroneAware-Node-Releases/blob/9f281478b26e8545b85dd908a041c1dbfccfd6f5/IMG_3537.jpeg)
 
 **What data is collected?**
 Only data broadcast publicly by the drones themselves via FAA-mandated Remote ID
-transmissions. Remote ID is an open broadcast — equivalent to a drone's tail
+transmissions. Remote ID is an open broadcast equivalent to a drone's tail
 number visible on a radar screen. No private communications, networks, or
 personal devices are accessed. Your node's GPS coordinates are stored on the
 DroneAware server to correctly place detections on the map.
@@ -104,7 +118,7 @@ DroneAware server to correctly place detections on the map.
 Run this single command:
 
 ```bash
-curl -fsSL https://github.com/fduflyer/DroneAware-Node/releases/download/v1.0.0/install.sh | sudo bash
+curl -fsSL https://github.com/fduflyer/DroneAware-Node-Releases/releases/download/v1.0.13/install.sh | sudo bash
 ```
 
 The installer will:
@@ -121,10 +135,10 @@ The installer will:
    adapter automatically. If none is found, it will exit with instructions.
 
 4. **Install system packages and download binaries** from the
-   [v1.0.0 release](https://github.com/fduflyer/DroneAware-Node/releases/tag/v1.0.0).
+   [v1.0.14 release](https://github.com/fduflyer/DroneAware-Node/releases/tag/v1.0.14).
 
 5. **Enroll the node** — you will be prompted to open
-   [flight.droneaware.io/nodes](https://flight.droneaware.io/nodes), log in,
+   [flight.droneaware.io/nodes](https://droneaware.io/nodes), log in,
    click **Add Node**, and paste the enrollment token shown. The node is
    immediately active on your account — no separate claim step required.
 
@@ -138,11 +152,11 @@ At the end of installation the installer displays:
 ║  Node ID : my-garage                                                ║
 ╠══════════════════════════════════════════════════════════════════════╣
 ║  Your node is enrolled and active on the DroneAware network.       ║
-║  View it at: https://flight.droneaware.io/nodes                    ║
+║  View it at: https://droneaware.io/nodes                    ║
 ╚══════════════════════════════════════════════════════════════════════╝
 ```
 
-Log into [flight.droneaware.io/nodes](https://flight.droneaware.io/nodes) to
+Log into [droneaware.io/nodes](https://droneaware.io/nodes) to
 see your node on the live map and access:
 
 - Detection history and alerts
@@ -212,7 +226,7 @@ Common causes:
 - WiFi: verify your credentials are correct, then reboot and try again
 
 **I need to change my node's location**
-Log into [flight.droneaware.io/nodes](https://flight.droneaware.io/nodes), select
+Log into [droneaware.io/nodes](https://droneaware.io/nodes), select
 your node, and update its location there. Node location is managed server-side.
 
 ---
@@ -235,7 +249,7 @@ your node, and update its location there. Node location is managed server-side.
 ## Support
 
 - Website: [droneaware.io](https://droneaware.io)
-- GitHub: [github.com/fduflyer/DroneAware-Node](https://github.com/fduflyer/DroneAware-Node)
+- GitHub: [github.com/fduflyer/DroneAware-Node-Releases](https://github.com/fduflyer/DroneAware-Node-Releases)
 
 ---
 
