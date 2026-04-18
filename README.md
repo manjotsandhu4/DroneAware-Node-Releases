@@ -7,7 +7,7 @@ Detect nearby drones (Remote ID) with a Raspberry Pi.
 Get a Raspberry Pi 4 and an external wifi adapter, run this single command, and you could be detecting drones around you up to 5 miles away with the right antenna. 
 
 ```bash
-curl -fsSL https://github.com/fduflyer/DroneAware-Node-Releases/releases/download/v1.0.11/install.sh | sudo bash
+curl -fsSL https://github.com/fduflyer/DroneAware-Node-Releases/releases/download/v1.0.14/install.sh | sudo bash
 ```
 
 Your new DroneAware node will listen for FAA-mandated Remote ID broadcasts from drones flying
@@ -135,10 +135,10 @@ The installer will:
    adapter automatically. If none is found, it will exit with instructions.
 
 4. **Install system packages and download binaries** from the
-   [v1.0.13 release](https://github.com/fduflyer/DroneAware-Node/releases/tag/v1.0.13).
+   [v1.0.14 release](https://github.com/fduflyer/DroneAware-Node/releases/tag/v1.0.14).
 
 5. **Enroll the node** — you will be prompted to open
-   [flight.droneaware.io/nodes](https://flight.droneaware.io/nodes), log in,
+   [flight.droneaware.io/nodes](https://droneaware.io/nodes), log in,
    click **Add Node**, and paste the enrollment token shown. The node is
    immediately active on your account — no separate claim step required.
 
@@ -249,7 +249,7 @@ your node, and update its location there. Node location is managed server-side.
 ## Support
 
 - Website: [droneaware.io](https://droneaware.io)
-- GitHub: [github.com/fduflyer/DroneAware-Node](https://github.com/fduflyer/DroneAware-Node)
+- GitHub: [github.com/fduflyer/DroneAware-Node-Releases](https://github.com/fduflyer/DroneAware-Node-Releases)
 
 ---
 
