@@ -141,7 +141,7 @@ The installer will:
    [v1.0.14 release](https://github.com/fduflyer/DroneAware-Node/releases/tag/v1.0.14).
 
 5. **Enroll the node** — you will be prompted to open
-   [flight.droneaware.io/nodes](https://droneaware.io/nodes), log in,
+   [droneaware.io/nodes](https://droneaware.io/nodes), log in,
    click **Add Node**, and paste the enrollment token shown. The node is
    immediately active on your account — no separate claim step required.
 
@@ -211,7 +211,7 @@ while True:
 
 Each record looks like:
 ```json
-{"t":1745000000.0,"mac":"fa:0b:bc:12:34:56","radio":"wifi_beacon","rssi":-68,"type":"Location/Vector","lat":40.4575,"lon":-74.3391,"alt":120.5,"speed":8.25,"hdg":270.0,"id":null}
+{"t":1745000000.0,"mac":"fa:0b:bc:12:34:56","radio":"wifi_beacon","rssi":-68,"type":"Location/Vector","lat":40.7128,"lon":-74.0060,"alt":120.5,"speed":8.25,"hdg":270.0,"id":null}
 ```
 
 The same detections are also saved to `/run/droneaware/detections.jsonl` on the

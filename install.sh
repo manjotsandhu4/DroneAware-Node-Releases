@@ -1,6 +1,6 @@
 #!/bin/bash
 # DroneAware Feeder Node Installer
-# Version: 1.0.14
+# Version: 1.0.15
 # Usage:  sudo bash install.sh
 #
 # Requires: Raspberry Pi OS Bookworm 64-bit, internet connection,
@@ -8,7 +8,7 @@
 
 set -e
 
-INSTALLER_VERSION="v1.0.14"
+INSTALLER_VERSION="v1.0.15"
 BINARY_VERSION="v1.0.14"  # last release containing updated binaries
 SERVICE_VERSION="v1.0.6"  # last release containing service files and bt-select script
 GITHUB_REPO="fduflyer/DroneAware-Node-Releases"
@@ -36,7 +36,7 @@ show_terms() {
     clear
     echo -e "${BOLD}"
     echo "╔══════════════════════════════════════════════════════════════════════╗"
-    echo "║            DroneAware Feeder Node — Installer v1.0.14              ║"
+    echo "║            DroneAware Feeder Node — Installer v1.0.15              ║"
     echo "╚══════════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 
@@ -163,7 +163,7 @@ _prompt_coordinates() {
     echo "    3. Right-click on that spot"
     echo "    4. The coordinates appear at the top of the menu — click them to copy"
     echo ""
-    echo "    Example: 40.457568, -74.339130"
+    echo "    Example: 40.712800, -74.006000"
     echo ""
     echo -e "  ${BOLD}Note:${NC} Your precise location is never publicly visible. DroneAware"
     echo "  displays only a 2-mile detection ring around your node — your exact"
@@ -171,7 +171,7 @@ _prompt_coordinates() {
     echo ""
 
     while true; do
-        read -rp "  Latitude  (e.g. 40.457568): " NODE_LAT </dev/tty
+        read -rp "  Latitude  (e.g. 40.712800): " NODE_LAT </dev/tty
         NODE_LAT="${NODE_LAT// /}"
         if [[ "$NODE_LAT" =~ ^-?[0-9]+(\.[0-9]+)?$ ]] && \
            awk -v v="$NODE_LAT" 'BEGIN{exit !(v>=-90&&v<=90)}'; then
@@ -181,7 +181,7 @@ _prompt_coordinates() {
     done
 
     while true; do
-        read -rp "  Longitude (e.g. -74.339130): " NODE_LON </dev/tty
+        read -rp "  Longitude (e.g. -74.006000): " NODE_LON </dev/tty
         NODE_LON="${NODE_LON// /}"
         if [[ "$NODE_LON" =~ ^-?[0-9]+(\.[0-9]+)?$ ]] && \
            awk -v v="$NODE_LON" 'BEGIN{exit !(v>=-180&&v<=180)}'; then
@@ -387,7 +387,7 @@ enroll_node() {
     echo ""
     echo "  To enroll this node you need a DroneAware account."
     echo ""
-    echo -e "  1. Open ${BOLD}https://flight.droneaware.io/nodes${NC} in your browser"
+    echo -e "  1. Open ${BOLD}https://droneaware.io/nodes${NC} in your browser"
     echo "  2. Log in (or create a free account)"
     echo -e "  3. Click ${BOLD}Add Node${NC}"
     echo "  4. Accept the Contributor Agreement if prompted"
@@ -485,10 +485,10 @@ print_summary() {
     printf  "║  Node ID : %-57s║\n" "$NODE_ID"
     echo  "╠══════════════════════════════════════════════════════════════════════╣"
     echo  "║  Your node is enrolled and active on the DroneAware network.       ║"
-    echo  "║  View it at: https://flight.droneaware.io/nodes                    ║"
+    echo  "║  View it at: https://droneaware.io/nodes                    ║"
     echo  "╠══════════════════════════════════════════════════════════════════════╣"
-    echo  "║  Feeders start automatically on next reboot.                       ║"
-    echo  "║  To start now:  sudo systemctl start droneaware-ble droneaware-wifi║"
+    echo  "║  Reboot now to start your feeders:  sudo reboot now               ║"
+    echo  "║  After reboot, services start automatically on every boot.         ║"
     echo  "║  To view logs:  journalctl -u droneaware-ble -f                    ║"
     echo  "╠══════════════════════════════════════════════════════════════════════╣"
     echo  "║  NOTE: On first boot your Pi may reboot once automatically to      ║"
