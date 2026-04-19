@@ -51,8 +51,8 @@ Remote ID broadcasts:
 **BLE Feeder (`droneaware-ble`)**
 Listens for Bluetooth Low Energy advertisements carrying Remote ID service data
 (UUID 0xFFFA, ASTM F3411). When a drone broadcast is detected, the raw 25-byte
-ODID message is forwarded to the DroneAware server in batches. All decoding
-(drone ID, position, speed, operator location) happens server-side.
+ODID message is decoded locally (drone ID, position, speed, operator location)
+and forwarded to the DroneAware server in batches.
 
 **WiFi Feeder (`droneaware-wifi`)**
 Places the Alfa adapter into monitor mode and hops across 2.4 GHz channels
@@ -71,7 +71,10 @@ Drone (Remote ID broadcast)
 
 Both services start automatically at boot, restart on crash, and send a
 heartbeat to the server every 60 seconds so the dashboard shows the node as
-online. No data is stored on the Pi, everything is forwarded in real time.
+online. Detections are forwarded to the DroneAware server in real time and also
+written to a local ring buffer (`/run/droneaware/detections.jsonl`) stored in
+RAM — the last 60 minutes of detections are kept on the Pi and purged
+automatically. Nothing is written to the SD card.
 
 ![DroneAware Screenshot3](https://github.com/fduflyer/DroneAware-Node-Releases/blob/9f281478b26e8545b85dd908a041c1dbfccfd6f5/IMG_3537.jpeg)
 
@@ -118,7 +121,7 @@ DroneAware server to correctly place detections on the map.
 Run this single command:
 
 ```bash
-curl -fsSL https://github.com/fduflyer/DroneAware-Node-Releases/releases/download/v1.0.13/install.sh | sudo bash
+curl -fsSL https://github.com/fduflyer/DroneAware-Node-Releases/releases/download/v1.0.14/install.sh | sudo bash
 ```
 
 The installer will:
@@ -183,6 +186,44 @@ sudo systemctl restart droneaware-ble droneaware-wifi
 # Start feeders manually (they start automatically on next reboot)
 sudo systemctl start droneaware-ble droneaware-wifi
 ```
+
+---
+
+## Local / Offline Use
+
+Every detection is also broadcast as a JSON line over UDP to
+`255.255.255.255:9999` on your local network. Any device on the same LAN can
+consume detections in real time without any data leaving your network.
+
+**Listen from any machine on your LAN:**
+```bash
+nc -luk 9999
+```
+
+**Or in Python:**
+```python
+import socket, json
+s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+s.bind(('', 9999))
+while True:
+    print(json.loads(s.recv(4096)))
+```
+
+Each record looks like:
+```json
+{"t":1745000000.0,"mac":"fa:0b:bc:12:34:56","radio":"wifi_beacon","rssi":-68,"type":"Location/Vector","lat":40.4575,"lon":-74.3391,"alt":120.5,"speed":8.25,"hdg":270.0,"id":null}
+```
+
+The same detections are also saved to `/run/droneaware/detections.jsonl` on the
+Pi — a rolling 60-minute window stored entirely in RAM (no SD card writes,
+cleared on reboot). You can tail it directly:
+```bash
+tail -f /run/droneaware/detections.jsonl
+```
+
+> **Privacy note:** Your node's precise GPS coordinates are never publicly
+> visible. The DroneAware map displays only a 2-mile detection ring around your
+> node — your exact location is kept private.
 
 ---
 
