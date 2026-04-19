@@ -76,8 +76,6 @@ written to a local ring buffer (`/run/droneaware/detections.jsonl`) stored in
 RAM — the last 60 minutes of detections are kept on the Pi and purged
 automatically. Nothing is written to the SD card.
 
-![DroneAware Screenshot3](https://github.com/fduflyer/DroneAware-Node-Releases/blob/9f281478b26e8545b85dd908a041c1dbfccfd6f5/IMG_3537.jpeg)
-
 **What data is collected?**
 Only data broadcast publicly by the drones themselves via FAA-mandated Remote ID
 transmissions. Remote ID is an open broadcast equivalent to a drone's tail
