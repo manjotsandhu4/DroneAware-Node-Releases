@@ -1,92 +1,18 @@
 ```
-# Service and system files
+# Service files
 *.service
-*.socket
-*.timer
 
-# Logs and temporary files
+# Logs and temp files
 *.log
 *.tmp
-*.temp
-*.swp
-*.swo
 
-# Environment files
+# Environment
 .env
 .env.local
-*.env.*
+.env.*
 
-# Python specific
-*.pyc
-__pycache__/
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
-.venv*/**/*
-*.so
-
-# Build and distribution
-build/
-dist/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Editors
-.vscode/
-.idea/
+# Backup and swap files
 *.swp
 *.swo
-
-# Coverage reports
-.coverage
-htmlcov/
-.coverage.*
-coverage.xml
-*.cover
-
-# Package manager caches
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.jscs-cache/
-.nyc_output/
-.pytest_cache/
-.mypy_cache/
-.tox/
-
-# Compressed files
-*.zip
-*.tar.gz
-*.tar.bz2
-*.tar.xz
-*.gz
-*.bz2
-*.xz
-*.7z
-*.rar
-*.tgz
-*.tar
-*.Z
-*.lz
-*.lzo
-*.lz4
-*.lzh
-*.cab
-*.arj
-*.rpm
-*.deb
-*.zst
+*~
 ```

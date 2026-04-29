@@ -8,14 +8,10 @@ Requires=droneaware-bt-select.service
 Type=simple
 User=root
 EnvironmentFile=/opt/droneaware/config.env
+Environment=PATH=/opt/droneaware/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+WorkingDirectory=/opt/droneaware
 ExecStartPre=/usr/sbin/rfkill unblock bluetooth
-ExecStart=/usr/local/bin/ble_feeder \
-    --node-id ${NODE_ID} \
-    --server ${SERVER_URL} \
-    --adapter ${BLE_ADAPTER} \
-    --adapter-mac ${BLE_ADAPTER_MAC} \
-    --batch-size ${BATCH_SIZE} \
-    --flush-interval ${FLUSH_INTERVAL}
+ExecStart=/opt/droneaware/venv/bin/python3 /opt/droneaware/ble_feeder.py
 Restart=always
 RestartSec=10
 StandardOutput=journal

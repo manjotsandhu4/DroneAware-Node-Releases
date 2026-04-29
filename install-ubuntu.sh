@@ -357,18 +357,26 @@ copy_scripts() {
 install_services() {
     heading "Installing Services"
     
-    # Create service files for Ubuntu
-    cat > /etc/systemd/system/droneaware-ble.service <<EOF
+    # Copy standalone service files from workspace (preferred method)
+    if [[ -f /workspace/droneaware-ble.service ]]; then
+        cp /workspace/droneaware-ble.service /etc/systemd/system/
+        info "Installed droneaware-ble.service from workspace"
+    else
+        # Fallback: create inline service file with correct configuration
+        cat > /etc/systemd/system/droneaware-ble.service <<EOF
 [Unit]
 Description=DroneAware BLE Remote ID Feeder
-After=bluetooth.service network-online.target
+After=bluetooth.service network-online.target droneaware-bt-select.service
 Wants=bluetooth.service network-online.target
+Requires=droneaware-bt-select.service
 
 [Service]
 Type=simple
 User=root
+EnvironmentFile=/opt/droneaware/config.env
 Environment=PATH=$INSTALL_DIR/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 WorkingDirectory=$INSTALL_DIR
+ExecStartPre=/usr/sbin/rfkill unblock bluetooth
 ExecStart=$INSTALL_DIR/venv/bin/python3 $INSTALL_DIR/ble_feeder.py
 Restart=always
 RestartSec=10
@@ -379,8 +387,14 @@ SyslogIdentifier=droneaware-ble
 [Install]
 WantedBy=multi-user.target
 EOF
+    fi
 
-    cat > /etc/systemd/system/droneaware-wifi.service <<EOF
+    if [[ -f /workspace/droneaware-wifi.service ]]; then
+        cp /workspace/droneaware-wifi.service /etc/systemd/system/
+        info "Installed droneaware-wifi.service from workspace"
+    else
+        # Fallback: create inline service file with correct configuration
+        cat > /etc/systemd/system/droneaware-wifi.service <<EOF
 [Unit]
 Description=DroneAware WiFi Remote ID Feeder
 After=network-online.target
@@ -389,6 +403,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=root
+EnvironmentFile=/opt/droneaware/config.env
 Environment=PATH=$INSTALL_DIR/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 WorkingDirectory=$INSTALL_DIR
 ExecStart=$INSTALL_DIR/venv/bin/python3 $INSTALL_DIR/wifi_feeder.py
@@ -401,8 +416,14 @@ SyslogIdentifier=droneaware-wifi
 [Install]
 WantedBy=multi-user.target
 EOF
+    fi
 
-    cat > /etc/systemd/system/droneaware-sdr.service <<EOF
+    if [[ -f /workspace/droneaware-sdr.service ]]; then
+        cp /workspace/droneaware-sdr.service /etc/systemd/system/
+        info "Installed droneaware-sdr.service from workspace"
+    else
+        # Fallback: create inline service file with correct configuration
+        cat > /etc/systemd/system/droneaware-sdr.service <<EOF
 [Unit]
 Description=DroneAware RTL-SDR Remote ID Feeder
 After=network-online.target
@@ -411,6 +432,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=root
+EnvironmentFile=/opt/droneaware/config.env
 Environment=PATH=$INSTALL_DIR/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
 WorkingDirectory=$INSTALL_DIR
 ExecStart=$INSTALL_DIR/venv/bin/python3 $INSTALL_DIR/sdr_feeder.py --freq-dwell \${FREQ_DWELL:-0.5} --gain \${SDR_GAIN:-auto}
@@ -423,9 +445,26 @@ SyslogIdentifier=droneaware-sdr
 [Install]
 WantedBy=multi-user.target
 EOF
+    fi
+
+    # Install bt-select service if available
+    if [[ -f /workspace/droneaware-bt-select.service ]]; then
+        cp /workspace/droneaware-bt-select.service /etc/systemd/system/
+        info "Installed droneaware-bt-select.service from workspace"
+    fi
+
+    # Install RTL-SDR udev rules for USB permissions
+    if [[ ! -f /etc/udev/rules.d/20-rtl-sdr.rules ]]; then
+        cat > /etc/udev/rules.d/20-rtl-sdr.rules <<EOF
+# RTL-SDR Blog v3 USB permissions
+ATTR{idVendor}=="0bda", ATTR{idProduct}=="2838", MODE="0666", GROUP="plugdev"
+EOF
+        udevadm control --reload-rules
+        info "Installed RTL-SDR udev rules"
+    fi
 
     systemctl daemon-reload
-    systemctl enable droneaware-ble droneaware-wifi droneaware-sdr > /dev/null 2>&1
+    systemctl enable droneaware-ble droneaware-wifi droneaware-sdr droneaware-bt-select > /dev/null 2>&1 || true
     
     info "Services enabled for autostart."
 }
