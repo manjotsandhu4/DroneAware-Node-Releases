@@ -13,7 +13,7 @@ sudo bash install-ubuntu.sh
 ```
 
 ### Option 2: Use External Adapters (Recommended for Best Performance)
-For maximum range and full functionality with external USB Bluetooth, WiFi, and GPS adapters:
+For maximum range and full functionality with external USB Bluetooth, WiFi, and RTL-SDR adapters:
 
 ```bash
 cd /workspace
@@ -21,6 +21,13 @@ sudo bash install-ubuntu-latitude.sh
 ```
 
 See [LATITUDE_SETUP.md](LATITUDE_SETUP.md) for complete external adapter setup guide.
+
+**Recommended Hardware:**
+- **USB Bluetooth**: Sena UD100 (CSR chipset) - $15
+- **USB WiFi**: Alfa AWUS036N (RT3070 chipset) - $25  
+- **RTL-SDR**: RTL-SDR Blog v3 or similar - $25
+
+The RTL-SDR v3 adds support for capturing drone telemetry on LoRa (433/868/915 MHz), ADS-B (1090 MHz), and other sub-2.4 GHz frequencies that WiFi/BLE cannot receive.
 
 ## Manual Installation
 
@@ -41,7 +48,15 @@ cd /workspace
 python3 -m venv venv
 source venv/bin/activate
 pip install --upgrade pip
-pip install bleak requests
+pip install bleak requests pyrtlsdr
+```
+
+#### 2b. Install RTL-SDR System Dependencies (Optional)
+
+If using an RTL-SDR dongle:
+
+```bash
+sudo apt install -y rtl-sdr librtlsdr-dev
 ```
 
 #### 3. Test Bluetooth Detection (No Installation Required)
@@ -131,18 +146,22 @@ After installation:
 # Start services
 sudo systemctl start droneaware-ble
 sudo systemctl start droneaware-wifi
+sudo systemctl start droneaware-sdr
 
 # Enable auto-start on boot
 sudo systemctl enable droneaware-ble
 sudo systemctl enable droneaware-wifi
+sudo systemctl enable droneaware-sdr
 
 # View logs
 journalctl -u droneaware-ble -f
 journalctl -u droneaware-wifi -f
+journalctl -u droneaware-sdr -f
 
 # Stop services
 sudo systemctl stop droneaware-ble
 sudo systemctl stop droneaware-wifi
+sudo systemctl stop droneaware-sdr
 ```
 
 ## Local Network Broadcasting

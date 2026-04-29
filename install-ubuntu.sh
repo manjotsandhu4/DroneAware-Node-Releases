@@ -306,7 +306,7 @@ install_packages() {
     # Install required packages
     apt-get install -y --no-install-recommends \
         bluez bluetooth iw rfkill curl python3-pip python3-venv \
-        libbluetooth-dev tcpdump dumpcap net-tools \
+        libbluetooth-dev tcpdump dumpcap net-tools rtl-sdr librtlsdr-dev \
         > /dev/null 2>&1
     
     # Enable Bluetooth service
@@ -329,7 +329,7 @@ install_python_deps() {
     # Activate and install packages
     source "$INSTALL_DIR/venv/bin/activate"
     pip install --upgrade pip > /dev/null 2>&1
-    pip install bleak requests > /dev/null 2>&1
+    pip install bleak requests pyrtlsdr > /dev/null 2>&1
     
     info "Python dependencies installed in $INSTALL_DIR/venv"
 }
@@ -343,6 +343,7 @@ copy_scripts() {
     # Copy feeder scripts
     cp /workspace/ble_feeder.py "$INSTALL_DIR/"
     cp /workspace/wifi_feeder.py "$INSTALL_DIR/"
+    cp /workspace/sdr_feeder.py "$INSTALL_DIR/"
     cp /workspace/api.py "$INSTALL_DIR/" 2>/dev/null || true
     
     chmod +x "$INSTALL_DIR"/*.py
@@ -401,8 +402,30 @@ SyslogIdentifier=droneaware-wifi
 WantedBy=multi-user.target
 EOF
 
+    cat > /etc/systemd/system/droneaware-sdr.service <<EOF
+[Unit]
+Description=DroneAware RTL-SDR Remote ID Feeder
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Environment=PATH=$INSTALL_DIR/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin
+WorkingDirectory=$INSTALL_DIR
+ExecStart=$INSTALL_DIR/venv/bin/python3 $INSTALL_DIR/sdr_feeder.py --freq-dwell \${FREQ_DWELL:-0.5} --gain \${SDR_GAIN:-auto}
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=droneaware-sdr
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
     systemctl daemon-reload
-    systemctl enable droneaware-ble droneaware-wifi > /dev/null 2>&1
+    systemctl enable droneaware-ble droneaware-wifi droneaware-sdr > /dev/null 2>&1
     
     info "Services enabled for autostart."
 }
@@ -432,6 +455,8 @@ NODE_LON=${NODE_LON:-}
 GPS_DEVICE=${GPS_DEVICE:-}
 BATCH_SIZE=200
 FLUSH_INTERVAL=5.0
+FREQ_DWELL=0.5
+SDR_GAIN=auto
 EOF
     chmod 600 "${INSTALL_DIR}/config.env"
     info "Configuration written to ${INSTALL_DIR}/config.env"
